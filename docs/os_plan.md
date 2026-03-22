@@ -523,3 +523,95 @@ stack 常拿來放：
 bootloader 先讀 **multiboot header** 確認這是可啟動的 kernel，接著從 **`_start`** 進入；`_start` 先設好 **stack**，而 stack 常常放在 **`.bss`** 裡保留空間；整個 kernel 各區段最後要放到哪裡，則由 **linker script** 決定。
 
 
+## 第一次在 QEMU 看到字
+
+```bash
+make run
+```
+
+```bash
+file mykernel.bin
+readelf -h mykernel.bin
+readelf -S mykernel.bin
+nm mykernel.bin | head
+```
+
+### VGA text mode
+
+一種老式螢幕顯示模式，直接用**文字格子**在畫面上顯示字元。
+直覺上就是：**螢幕像一張固定大小的字表，每格放一個字和顏色**。
+
+在 OS 教學裡常用它來做最早期輸出，因為很簡單：
+
+* 不用圖形驅動
+* 直接寫記憶體就能顯示文字
+* 常見位置是 `0xB8000`
+
+---
+
+### entry point
+
+程式開始執行的**起始位址/入口位置**。
+直覺上就是：**CPU 一進程式時，先踩到的第一個點**。
+
+在 kernel 裡常常是：
+
+* `_start`
+
+linker 會把這個入口資訊放進最終檔案裡，bootloader 或載入器再從那裡開始執行。
+
+---
+
+### ELF header
+
+ELF 檔案最前面的**總表頭資訊**。
+直覺上就是：**ELF 檔案的封面和目錄摘要**。
+
+它會告訴工具或載入器：
+
+* 這是不是 ELF
+* 是 32-bit 還是 64-bit
+* 給哪種 CPU 用
+* 入口點在哪
+* section / program header 在哪裡
+
+---
+
+### symbol table
+
+記錄 **symbol 名字與相關資訊** 的表。
+直覺上就是：**程式裡所有重要名字的通訊錄**。
+
+裡面可能記：
+
+* 函式名
+* 全域變數名
+* 位址
+* 所屬 section
+* 大小
+
+工具像 `nm`、`objdump`、`readelf` 常會讀它。
+
+---
+
+### emulator
+
+用軟體**模擬另一台機器/硬體環境** 的程式。
+直覺上就是：**你電腦上的一台假電腦**。
+
+在 OS 開發裡很常用，因為你可以：
+
+* 不用每次都燒到真機
+* 更容易除錯
+* 快速測試 boot/kernel
+
+常見例子：
+
+* QEMU
+* Bochs
+
+---
+
+### 概念連接
+
+你的 kernel 會被包成 ELF，裡面有 **ELF header**、**symbol table** 和 **entry point**；啟動後可以先用 **VGA text mode** 輸出文字，而整個系統通常先放到 **emulator** 裡測試。
