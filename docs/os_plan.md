@@ -615,3 +615,606 @@ ELF 檔案最前面的**總表頭資訊**。
 ### 概念連接
 
 你的 kernel 會被包成 ELF，裡面有 **ELF header**、**symbol table** 和 **entry point**；啟動後可以先用 **VGA text mode** 輸出文字，而整個系統通常先放到 **emulator** 裡測試。
+
+
+## 從最小範例走向可維護專案
+
+### 整理目錄，開始 arch 與 include 分層
+
+拆分成arch/i386，kernel，include，iso/boot/grub目錄
+
+繼續用 **一句話定義 + 直覺理解** 來精簡說明：
+
+### architecture-specific
+
+**只適用某一種 CPU 架構的程式碼**。
+直覺上就是：**這段程式只服務特定硬體，不是 everywhere 都能用。
+例如：
+
+* x86 的中斷設定
+* ARM 的暫存器操作
+* RISC-V 的啟動碼
+
+這些都高度依賴 CPU 架構本身。
+
+---
+
+### generic code
+
+**不依賴特定 CPU 架構、可重用的通用程式碼**。
+直覺上就是：**能共用就共用，別綁死在某個硬體上。**
+
+例如：
+
+* 通用資料結構
+* 排程器的一般邏輯
+* 記憶體管理的高層抽象
+* 字串處理工具
+
+通常 OS 會把程式拆成：
+
+* `arch/x86/...` 這種 architecture-specific
+* `kernel/...`、`mm/...` 這種 generic code
+
+---
+
+### include path
+
+編譯器在找 `#include` 標頭檔時會搜尋的路徑。
+直覺上就是：**compiler 找 header 的搜尋路線圖**。
+
+例如你寫：
+
+```c
+#include <stdio.h>
+#include "kernel.h"
+```
+
+compiler 會去一串目錄裡找這些檔案，
+那些目錄就是 include path。
+
+常見設定方式：
+
+* `-Iinclude`
+* `-I/usr/local/include`
+
+---
+
+### translation unit
+
+**一個 `.c` 檔加上它展開後所包含的所有 header 內容**。
+直覺上就是：**編譯器一次真正看到並編譯的完整單位**。
+
+例如：
+
+```c
+// main.c
+#include "a.h"
+#include "b.h"
+int main() { return 0; }
+```
+
+經過前處理後，`main.c` + 展開的 `a.h`、`b.h`，
+整包就是一個 translation unit。
+
+簡單說：
+
+* `.c` 檔不是單獨看的
+* 是展開 include 後一起編譯
+
+---
+
+### kernel entry
+
+**kernel 開始執行的入口位置**。
+直覺上就是：**CPU 正式踏進 kernel 世界的第一步。**
+
+它通常是一個符號，例如：
+
+* `_start`
+
+這裡常做的事：
+
+* 設 stack
+* 做最早期初始化
+* 再跳去 `kernel_main`
+
+它和一般應用程式的 `main` 不一樣，
+因為 kernel entry 通常更底層、更早期。
+
+---
+
+### 概念連接
+
+作業系統會把程式分成 **architecture-specific** 和 **generic code**；編譯時 compiler 會靠 **include path** 找 header，每個 `.c` 檔展開後形成一個 **translation unit**，最後從 **kernel entry** 開始執行。
+
+## 把 Bare Bones 移植到新骨架
+
+把barebones程式碼移植到meaty目錄中
+
+
+### source tree
+
+整個專案原始碼的**目錄結構**。
+直覺上就是：**程式碼長成的一棵資料夾樹**。
+
+例如 OS 專案常會長這樣：
+
+```text
+kernel/
+mm/
+drivers/
+arch/x86/
+include/
+boot/
+```
+
+這整包目錄安排，就叫 source tree。
+
+---
+
+### separation of concerns
+
+把不同責任的程式碼**拆開處理**，不要全部混在一起。
+直覺上就是：**一個模組做一件主要的事**。
+
+例如：
+
+* boot 負責啟動
+* mm 負責記憶體管理
+* drivers 負責裝置
+* scheduler 負責排程
+
+這樣比較好讀、好改、好除錯。
+
+---
+
+### arch layer
+
+作業系統中專門處理**特定 CPU/平台差異**的那一層。
+直覺上就是：**把硬體相關細節集中隔離的一層**。
+
+例如：
+
+* x86 的中斷初始化
+* ARM 的例外向量
+* page table 格式差異
+
+常見目錄像：
+
+```text
+arch/x86/
+arch/arm64/
+```
+
+---
+
+### interface
+
+模組對外提供的**使用規則/入口**。
+直覺上就是：**你可以怎麼用這個模組的門面**。
+
+例如一個記憶體配置介面可能是：
+
+```c
+void *kmalloc(size_t size);
+void kfree(void *p);
+```
+
+別的模組只需要知道怎麼呼叫，這就是 interface。
+
+---
+
+### implementation
+
+真正把功能**做出來的內部程式碼**。
+直覺上就是：**門面背後實際運作的內容**。
+
+例如同樣是：
+
+```c
+void *kmalloc(size_t size);
+```
+
+interface 是這個函式宣告，
+implementation 是它裡面到底怎麼分配記憶體。
+
+---
+
+### interface vs implementation
+
+最精簡地分：
+
+* **interface**：告訴你「怎麼用」
+* **implementation**：告訴電腦「怎麼做」
+
+---
+
+### 概念連接
+
+一個 OS 專案的 **source tree** 會按照 **separation of concerns** 來拆資料夾，其中 **arch layer** 專門放硬體相關部分；每個模組通常都分成 **interface** 和 **implementation**。
+
+## meaty Makefile
+
+可以，先給你一版 **OS 練習用的第一版 Makefile**，然後順手把今天這幾個術語一起記住。
+
+---
+
+### 第一版 Makefile
+
+假設你的專案目前是這樣：
+
+```text
+boot.s
+kernel.c
+linker.ld
+Makefile
+```
+
+那可以先寫成：
+
+```makefile
+# 工具鏈
+CC = i686-elf-gcc
+AS = i686-elf-as
+LD = i686-elf-ld
+
+# 參數
+CFLAGS = -ffreestanding -m32 -Wall -Wextra -O2
+ASFLAGS = --32
+LDFLAGS = -T linker.ld -m elf_i386
+
+# 目標檔
+OBJS = boot.o kernel.o
+
+# 最終輸出
+TARGET = kernel.elf
+
+all: $(TARGET)
+
+boot.o: boot.s
+	$(AS) $(ASFLAGS) boot.s -o boot.o
+
+kernel.o: kernel.c
+	$(CC) $(CFLAGS) -c kernel.c -o kernel.o
+
+$(TARGET): $(OBJS)
+	$(LD) $(LDFLAGS) $(OBJS) -o $(TARGET)
+
+debug: $(TARGET)
+	qemu-system-i386 -kernel $(TARGET) -s -S
+
+clean:
+	rm -f $(OBJS) $(TARGET)
+
+.PHONY: all debug clean
+```
+
+---
+
+### 這份 Makefile 在做什麼
+
+流程是：
+
+1. `boot.s` 組譯成 `boot.o`
+2. `kernel.c` 編譯成 `kernel.o`
+3. `boot.o + kernel.o` 連結成 `kernel.elf`
+
+也就是：
+
+```text
+boot.s   ----> boot.o
+kernel.c ----> kernel.o
+boot.o + kernel.o ----> kernel.elf
+```
+
+---
+
+
+### dependency
+
+**依賴項**。
+就是：「我要做這個東西之前，先需要哪些檔案。」
+
+例如：
+
+```makefile
+kernel.o: kernel.c
+```
+
+這裡的 `kernel.c` 就是 `kernel.o` 的 dependency。
+意思是：
+
+* `kernel.o` 依賴 `kernel.c`
+* 如果 `kernel.c` 變了，就要重做 `kernel.o`
+
+---
+
+### target
+
+**要生成的目標**。
+也就是 rule 左邊那個東西。
+
+例如：
+
+```makefile
+kernel.o: kernel.c
+```
+
+這裡的 `kernel.o` 就是 target。
+
+再例如：
+
+```makefile
+all: $(TARGET)
+```
+
+這裡的 `all` 也是 target。
+
+---
+
+### rule
+
+**一條建置規則**。
+它通常長這樣：
+
+```makefile
+target: dependencies
+	commands
+```
+
+例如：
+
+```makefile
+kernel.o: kernel.c
+	$(CC) $(CFLAGS) -c kernel.c -o kernel.o
+```
+
+這整段就是一條 rule。
+
+你可以把它理解成：
+
+* 我要做出誰（target）
+* 它依賴誰（dependencies）
+* 要怎麼做（commands）
+
+---
+
+### debug target
+
+專門拿來做**除錯用途**的 target。
+
+例如：
+
+```makefile
+debug: $(TARGET)
+	qemu-system-i386 -kernel $(TARGET) -s -S
+```
+
+這裡 `debug` 不是一個真正輸出的檔案，
+而是一個「快捷指令 target」。
+
+它的用途通常是：
+
+* 啟動 QEMU
+* 開 GDB stub
+* 停在第一行等你 attach debugger
+
+所以 `make debug` 就能快速進入除錯模式。
+
+---
+
+### reproducible build
+
+**可重現建置**。
+意思是：
+
+* 同一份原始碼
+* 同樣的工具鏈
+* 同樣的參數
+* 不管在哪台機器建置
+
+都應該產生**相同或可預期一致**的結果。
+
+直覺上就是：
+
+**今天 build 一次，明天再 build，一樣的輸入就該有一樣的輸出。**
+
+這很重要，因為它能幫你：
+
+* 減少「我這台可以，你那台不行」
+* 方便除錯
+* 方便追蹤問題
+* 讓 release 更可信
+
+---
+
+### 把 Makefile 跟術語對上去
+
+這條：
+
+```makefile
+kernel.o: kernel.c
+	$(CC) $(CFLAGS) -c kernel.c -o kernel.o
+```
+
+可以這樣拆：
+
+* `kernel.o` → **target**
+* `kernel.c` → **dependency**
+* 整段三行 → **rule**
+
+這條：
+
+```makefile
+debug: $(TARGET)
+	qemu-system-i386 -kernel $(TARGET) -s -S
+```
+
+就是：
+
+* `debug` → **debug target**
+
+---
+
+### 簡單記憶
+
+你可以先背這句：
+
+> Makefile 就是在寫：**我要做什麼(target)，它先需要什麼(dependency)，以及怎麼做(rule)。**
+
+然後補一句：
+
+> `debug target` 是方便除錯的快捷入口，`reproducible build` 是讓建置結果穩定可重現。
+
+---
+
+
+### 對照表
+
+| 術語                 | 最短理解                                |
+| ------------------ | ----------------------------------- |
+| dependency         | 做某個 target 前先需要的東西                  |
+| target             | 要生成的東西，或一個 make 指令入口                |
+| rule               | target + dependency + command 的整套規則 |
+| debug target       | 專門用來除錯的 make 目標                     |
+| reproducible build | 同樣輸入能做出一致結果的建置                      |
+
+---
+
+
+## 補 Getting to C，理解從 assembly 進 C
+
+在kernel.c中使用a=3,b=4,c=a+b; 來檢查stack是否正常運作看c的值是否為7
+
+
+### calling convention
+
+函式呼叫時，**參數怎麼傳、回傳值放哪、哪些暫存器誰負責保存** 的規則。
+直覺上就是：**函式彼此溝通時共同遵守的交通規則**。
+
+它通常規定：
+
+* 參數放在 stack 還是暫存器
+* 回傳值放哪個暫存器
+* caller / callee 誰保存哪些暫存器
+
+常見例子：
+
+* cdecl
+* stdcall
+* System V ABI
+* x86-64 calling convention
+
+---
+
+### prologue
+
+函式一進來時先做的**開場準備動作**。
+直覺上就是：**函式開始工作前，先把自己的桌面整理好**。
+
+常見內容：
+
+* 保存舊的 base pointer
+* 建立新的 stack frame
+* 挪出區域變數空間
+* 保存需要保留的暫存器
+
+x86 常見長這樣：
+
+```asm
+push %ebp
+mov %esp, %ebp
+sub $N, %esp
+```
+
+---
+
+### epilogue
+
+函式結束前做的**收尾還原動作**。
+直覺上就是：**函式下班前，把借來的東西放回去**。
+
+常見內容：
+
+* 還原 stack
+* 還原保存過的暫存器
+* 恢復舊的 base pointer
+* 返回呼叫者
+
+x86 常見長這樣：
+
+```asm
+mov %ebp, %esp
+pop %ebp
+ret
+```
+
+---
+
+### packed struct
+
+一種要求編譯器**不要幫 struct 成員自動補 padding 對齊空間** 的結構。
+直覺上就是：**把欄位緊緊排在一起，不留空隙**。
+
+用途常見於：
+
+* 磁碟格式
+* 網路封包
+* 硬體暫存器格式
+* binary file format
+
+例如：
+
+```c
+struct __attribute__((packed)) Header {
+    char a;
+    int b;
+};
+```
+
+這樣 `a` 和 `b` 中間不會自動補齊。
+
+但要注意：
+
+* 存取可能變慢
+* 某些架構上未對齊存取可能出錯
+
+---
+
+### stack frame
+
+某一次函式呼叫在 stack 上用到的那一塊區域。
+直覺上就是：**每個函式呼叫都有自己的一小塊工作區**。
+
+裡面通常可能放：
+
+* 返回位址
+* 舊的 base pointer
+* 區域變數
+* 暫存資料
+* 某些參數
+
+可以把它想成：
+
+* 呼叫一個函式，就在 stack 上開一個 frame
+* 函式結束，就把這個 frame 收掉
+
+---
+
+### 這幾個怎麼串起來
+
+當你呼叫一個函式時，會遵守 **calling convention**；
+函式進來先做 **prologue**，建立自己的 **stack frame**；
+如果 struct 要完全貼齊格式，可能會用 **packed struct**；
+最後函式結束前再用 **epilogue** 收尾並返回。
+
+---
+
+### 最短記憶版
+
+* **calling convention**：函式呼叫規則
+* **prologue**：函式開場準備
+* **epilogue**：函式結束收尾
+* **packed struct**：不補 padding 的 struct
+* **stack frame**：一次函式呼叫的 stack 工作區
