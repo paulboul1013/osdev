@@ -14,10 +14,13 @@ static inline uint16_t vga_entry(unsigned char c,uint8_t color){
 }
 
 void kernel_main(void){
-    const char *msg="Hello, meaty kernel world!";
-    uint8_t color=vga_entry_color(15,0);
+    volatile int a=3;
+    volatile int b=4;
+    volatile int c=a+b;
 
-    for(size_t i=0;msg[i]!='\0';i++){
-        VGA[i]=vga_entry(msg[i],color);
+    const char *ok=(c==7) ? "stack ok":"stack bad";
+    uint16_t *vga=(uint16_t*)0xB8000;
+    for(size_t i=0;ok[i];i++){
+        vga[i]=(uint16_t)ok[i] | (uint16_t)0x0F <<8;
     }
 }
