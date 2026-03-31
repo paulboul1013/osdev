@@ -1,0 +1,7 @@
+build/
+opt/
+src/
+
+meaty/**/*.o
+meaty/**/*.bin
+meaty/**/*.iso
