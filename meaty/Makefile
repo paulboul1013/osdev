@@ -4,7 +4,7 @@ AS      := $(PREFIX)-as
 CFLAGS  := -std=gnu11 -ffreestanding -O2 -Wall -Wextra
 LDFLAGS := -T arch/i386/linker.ld -ffreestanding -O2 -nostdlib
 
-OBJS := arch/i386/boot.o kernel/kernel.o
+OBJS := arch/i386/boot.o kernel/kernel.o kernel/tty.o
 
 all: myos.iso
 
@@ -12,6 +12,9 @@ arch/i386/boot.o: arch/i386/boot.s
 	$(AS) $< -o $@
 
 kernel/kernel.o: kernel/kernel.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel/tty.o: kernel/tty.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 mykernel.bin: $(OBJS) arch/i386/linker.ld
