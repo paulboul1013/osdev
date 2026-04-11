@@ -6,6 +6,7 @@
 void kernel_main(void){
     terminal_initialize();
     terminal_writestring("Hello\rX\n");
+    terminal_writestring("hello\tworld\n");
     terminal_writestring("line 1\n");
     terminal_writestring("line 2\n");
     terminal_writestring("line 3\n");
