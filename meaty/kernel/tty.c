@@ -35,6 +35,11 @@ void terminal_putchar(char c){
         return;
     }
 
+    if (c=='\r'){
+        col=0;
+        return;
+    }
+
     //normal character: write current cursor position
     VGA[row*VGA_WIDTH+col]=vga_entry((unsigned char)c,color);
 
