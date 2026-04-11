@@ -4,6 +4,7 @@
 
 static const size_t VGA_WIDTH=80;
 static const size_t VGA_HEIGHT=25;
+static const size_t TAB_WIDTH=4;
 
 static size_t row;
 static size_t col;
@@ -37,6 +38,15 @@ void terminal_putchar(char c){
 
     if (c=='\r'){
         col=0;
+        return;
+    }
+
+    if (c=='\t'){
+        size_t next_tab_stop=((col/TAB_WIDTH)+1)*TAB_WIDTH;
+        
+        while(col<next_tab_stop){
+            terminal_putchar(' ');
+        }
         return;
     }
 
