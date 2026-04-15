@@ -99,9 +99,18 @@ static void terminal_scroll(void){
 }
 
 void terminal_writestring(const char *s){
-    for(size_t i=0;s[i]!='\0';i++){
-        terminal_putchar(s[i]);
+    size_t len=0;
+    while(s[len]!='\0'){
+        len++;
     }
+    terminal_write(s,len);
+}
+
+int terminal_write(const char *buf,size_t len){
+    for(size_t i=0;i<len;i++){
+        terminal_putchar(buf[i]);
+    }
+    return len;
 }
 
 static void terminal_update_cursor(void){
