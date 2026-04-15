@@ -4,5 +4,5 @@
 void terminal_initialize(void);
 void terminal_putchar(char c);
 void terminal_writestring(const char *data);
-int terminal_write(const char *buf,size_t len);
+size_t terminal_write(const char *buf,size_t len);
 #endif
