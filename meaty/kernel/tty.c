@@ -19,6 +19,12 @@ static volatile uint16_t* const VGA=(uint16_t*)0xB8000;
 #define CURSOR_HIGH_BYTE 14
 #define CURSOR_LOW_BYTE 15
 
+static void terminal_clear_row(size_t row);
+static void terminal_scroll(void);
+static void terminal_update_cursor(void);
+static void terminal_enable_cursor(uint8_t start,uint8_t end);
+static void terminal_newline(void);
+
 static inline uint16_t vga_entry(char c,uint8_t color){
     return (uint16_t)c | (uint16_t)color<<8;
 }
