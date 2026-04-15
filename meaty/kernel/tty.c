@@ -124,7 +124,7 @@ void terminal_putchar(char c){
     terminal_update_cursor();
 }
 
-int terminal_write(const char *buf,size_t len){
+size_t terminal_write(const char *buf,size_t len){
     for(size_t i=0;i<len;i++){
         terminal_putchar(buf[i]);
     }
