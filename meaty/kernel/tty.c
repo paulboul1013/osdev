@@ -19,6 +19,7 @@ static volatile uint16_t* const VGA=(uint16_t*)0xB8000;
 #define CURSOR_HIGH_BYTE 14
 #define CURSOR_LOW_BYTE 15
 
+//private tty.c function
 static void terminal_clear_row(size_t row);
 static void terminal_scroll(void);
 static void terminal_update_cursor(void);
@@ -27,6 +28,51 @@ static void terminal_newline(void);
 
 static inline uint16_t vga_entry(char c,uint8_t color){
     return (uint16_t)c | (uint16_t)color<<8;
+}
+
+static void terminal_clear_row(size_t row){
+    for(size_t x=0;x<VGA_WIDTH;x++){
+        VGA[row*VGA_WIDTH+x]=vga_entry(' ',color);
+    }    
+}
+
+static void terminal_scroll(void){
+    for(size_t y=1;y<VGA_HEIGHT;y++){
+        for(size_t x=0;x<VGA_WIDTH;x++){
+            VGA[(y-1)*VGA_WIDTH+x]=VGA[y*VGA_WIDTH+x];
+        }
+    }
+
+    //last line empty
+    terminal_clear_row(VGA_HEIGHT-1);
+}
+
+static void terminal_update_cursor(void){
+    uint16_t pos=(uint16_t)(row*VGA_WIDTH+col);
+
+    outb(VGA_CMD_PORT,CURSOR_HIGH_BYTE);
+    outb(VGA_DATA_PORT,(uint8_t)((pos>>8)&0xFF));
+
+    outb(VGA_CMD_PORT,CURSOR_LOW_BYTE);
+    outb(VGA_DATA_PORT,(uint8_t)(pos&0xFF));
+}
+
+static void terminal_enable_cursor(uint8_t start,uint8_t end){
+    outb(VGA_CMD_PORT,0x0A);
+    outb(VGA_DATA_PORT,(inb(VGA_DATA_PORT)&0xC0)|start);
+
+    outb(VGA_CMD_PORT,0x0B);
+    outb(VGA_DATA_PORT,(inb(VGA_DATA_PORT)&0xE0)|end);
+}
+
+static void terminal_newline(void){
+    col=0;
+    row++;
+
+    if (row>=VGA_HEIGHT){
+        terminal_scroll();
+        row=VGA_HEIGHT-1;
+    }
 }
 
 void terminal_initialize(void){
@@ -42,15 +88,6 @@ void terminal_initialize(void){
     terminal_update_cursor();
 }
 
-static void terminal_newline(void){
-    col=0;
-    row++;
-
-    if (row>=VGA_HEIGHT){
-        terminal_scroll();
-        row=VGA_HEIGHT-1;
-    }
-}
 
 void terminal_putchar(char c){
     if (c=='\n'){
@@ -87,21 +124,11 @@ void terminal_putchar(char c){
     terminal_update_cursor();
 }
 
-static void terminal_clear_row(size_t row){
-    for(size_t x=0;x<VGA_WIDTH;x++){
-        VGA[row*VGA_WIDTH+x]=vga_entry(' ',color);
-    }    
-}
-
-static void terminal_scroll(void){
-    for(size_t y=1;y<VGA_HEIGHT;y++){
-        for(size_t x=0;x<VGA_WIDTH;x++){
-            VGA[(y-1)*VGA_WIDTH+x]=VGA[y*VGA_WIDTH+x];
-        }
+int terminal_write(const char *buf,size_t len){
+    for(size_t i=0;i<len;i++){
+        terminal_putchar(buf[i]);
     }
-
-    //last line empty
-    terminal_clear_row(VGA_HEIGHT-1);
+    return len;
 }
 
 void terminal_writestring(const char *s){
@@ -112,28 +139,5 @@ void terminal_writestring(const char *s){
     terminal_write(s,len);
 }
 
-int terminal_write(const char *buf,size_t len){
-    for(size_t i=0;i<len;i++){
-        terminal_putchar(buf[i]);
-    }
-    return len;
-}
 
-static void terminal_update_cursor(void){
-    uint16_t pos=(uint16_t)(row*VGA_WIDTH+col);
-
-    outb(VGA_CMD_PORT,CURSOR_HIGH_BYTE);
-    outb(VGA_DATA_PORT,(uint8_t)((pos>>8)&0xFF));
-
-    outb(VGA_CMD_PORT,CURSOR_LOW_BYTE);
-    outb(VGA_DATA_PORT,(uint8_t)(pos&0xFF));
-}
-
-static void terminal_enable_cursor(uint8_t start,uint8_t end){
-    outb(VGA_CMD_PORT,0x0A);
-    outb(VGA_DATA_PORT,(inb(VGA_DATA_PORT)&0xC0)|start);
-
-    outb(VGA_CMD_PORT,0x0B);
-    outb(VGA_DATA_PORT,(inb(VGA_DATA_PORT)&0xE0)|end);
-}
 
