@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "../include/kernel/tty.h"
 #include "../include/kernel/serial.h"
+#include "../arch/i386/gdt.h"
 
 
 void kernel_main(void){
@@ -10,6 +11,13 @@ void kernel_main(void){
 
     terminal_writestring("tty ok\n");
     serial_writestring("serial ok\n");
-    serial_writestring("line 2 from COM1\n");
 
+
+    terminal_writestring("loading gdt...\n");
+    serial_writestring("loading gdt...\n");
+
+    gdt_init();
+
+    terminal_writestring("gdt loaded\n");
+    serial_writestring("gdt loaded\n");
 }
